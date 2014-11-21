@@ -22,6 +22,8 @@ using namespace std;
 DataKoneksi *dakon;
 
 
+int getUserChannel(string username);
+
 void proses(int sock, int channel){
 
 	int rc = 1;  // Actual number of bytes read
@@ -47,6 +49,8 @@ void proses(int sock, int channel){
 									vector<Pesan> offData = Helper::pesanUser(query[1]);
 									int banyakOff = offData.size();
 									
+									cout << dakon[channel].username << " Start sending pending message" << "\n";
+									
 									for (int i = 0; i < banyakOff; i++){
 									
 										std::chrono::milliseconds dura( 20 );	// untuk speed sangat tinggi, untuk mengimbangi kecepatan kernel VM
@@ -58,8 +62,7 @@ void proses(int sock, int channel){
 										}else{
 											strcpy(buf, ((string)"MSG " + offData[i].dari + " " + to_string(offData[i].waktu) + " " + offData[i].pesan).c_str());
 										}
-										cout << buf << "\n";
-										cout << send(sock, buf, strlen(buf)+1, 0) << "\n";
+										send(sock, buf, strlen(buf)+1, 0);
 									
 									}
 									std::chrono::milliseconds dura( 100 );
@@ -67,10 +70,13 @@ void proses(int sock, int channel){
 									
 									strcpy(buf, ((string)"OK").c_str());
 									send(sock, buf, strlen(buf)+1, 0);
-									cout << "OK sent" << "\n";
 									
 									dakon[channel].username = query[1];
 									dakon[channel].state = 2;	// state udah login
+									dakon[channel].sock = sock;
+									
+									cout << dakon[channel].username << " OK sent" << "\n";
+									
 								}else{
 									strcpy(buf, ((string)"LOGINNO").c_str());
 									send(sock, buf, strlen(buf)+1, 0);
@@ -88,6 +94,43 @@ void proses(int sock, int channel){
 							rc = recv(sock, buf, 512, 0);
 							break;
 						}
+						
+			case 2	: {
+							
+						buf[rc]= (char) NULL;
+						vector<string> query = Helper::split((string)buf, ' ');
+						
+						if (query[0].compare("MSGTO") == 0) {
+							int uc = getUserChannel(query[1]);
+							time_t timer; time(&timer);
+							long waktu = (long) timer;
+								
+							if (uc != -1){
+								string to_send = "MSG " + dakon[channel].username + " " + to_string(waktu) + " " + query[2];
+								strcpy(buf, to_send.c_str());
+								
+								send(dakon[uc].sock, buf, strlen(buf)+1, 0);
+								
+							}else{
+								replace(query[2].begin(), query[2].end(), '~', ' ');
+								
+								Pesan pesan;
+								
+								pesan.dari = dakon[channel].username;
+								pesan.gid = "";
+								pesan.tipe = 'S';
+								pesan.pesan = query[2];
+								pesan.waktu = waktu;
+								
+								Helper::storePesan(query[1], pesan);
+							}
+						}else if (query[0].compare("MSGGROUPTO") == 0){
+						
+						}
+						
+						rc = recv(sock, buf, 512, 0);
+			
+			}break;
 			default:	break;
 		
 		}
@@ -98,7 +141,9 @@ void proses(int sock, int channel){
     dakon[channel].state = 0; //Biar channel bisa dipake yang lain
 	dakon[channel].username = "";
 	
+	
 }
+
 
 int availChannel(){
 	for (int i = 0; i < SERVERCAPACITY; i++){
@@ -110,6 +155,15 @@ int availChannel(){
 	return -1;
 }
 
+int getUserChannel(string username){
+	for (int i = 0; i < SERVERCAPACITY; i++){
+		if (dakon[i].username.compare(username) == 0){
+			return i;
+		}
+	}
+	return -1;
+}
+
 main()
 {
    struct sockaddr_in socketInfo;
@@ -117,6 +171,7 @@ main()
    struct hostent *hPtr;
    int socketHandle;
    int portNumber = 8080;
+   
    
    dakon = new DataKoneksi[SERVERCAPACITY];
    for (int i = 0; i < SERVERCAPACITY; i++){

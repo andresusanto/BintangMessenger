@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <algorithm>
+#include <vector>
+#include <time.h> 
 
 #define MAXHOSTNAME 256
 
@@ -15,23 +17,32 @@
 
 using namespace std;
 char clientState;
+string activeUser;
 int buatSocket();
+void prosesChat(int socketHandle);
 
-main()
-{
-	clientState = 'A';	// state inisiasi -> cuma bisa login
-	
+vector<string> sckVector;
+
+void printLogo(){
 	system("clear");
 	
-	int rc = 0;
-	char buf[512];
-	string tmp;
 	cout << "           ______  _____ __   _ _______ _______ __   _  ______\n";
 	cout << "           |_____]   |   | \\  |    |    |_____| | \\  | |  ____\n";
 	cout << "           |_____] __|__ |  \\_|    |    |     | |  \\_| |_____|\n";
 	cout << " _______ _______ _______ _______ _______ __   _  ______ _______  ______\n";
 	cout << " |  |  | |______ |______ |______ |______ | \\  | |  ____ |______ |_____/\n";
 	cout << " |  |  | |______ ______| ______| |______ |  \\_| |_____| |______ |    \\_\n\n";
+}
+
+main()
+{
+	clientState = 'A';	// state inisiasi -> cuma bisa login
+	
+	int rc = 0;
+	char buf[512];
+	string tmp;
+	
+	printLogo();
 	cout << "Welcome to Bintang Messenger!\nYou can \e[1mlogin\e[0m or \e[1msignup\e[0m\n\n"; 
 	int socketHandle = buatSocket();
 	
@@ -58,8 +69,8 @@ main()
 								
 								if (rc > 0){
 									if(((string)"LOGINOK").compare(buf) == 0){
-										
 										clientState = 'P';
+										activeUser = l_user;
 									}else if(((string)"LOGINNO").compare(buf) == 0){
 										cout << "\e[31mAccess Denied!\e[39m\n";
 									}
@@ -102,21 +113,64 @@ main()
 			case 'P'	:{	// state P adalah state yang digunakan untuk memproses pesan offline yang disimpan di server
 							bool offlineMsgHabis = false;
 							while ( !offlineMsgHabis ) {
-								cout << "masup lup" << "\n";
+								Pesan pesan;
 								rc = recv(socketHandle, buf, 512, 0);
-								
-								cout << buf << "\n";
 								vector<string> query = Helper::split((string)buf, ' ');
+								
 								if (query[0].compare("OK") == 0){
-									clientState = 'A';
+									clientState = 'M';
+									thread baru (prosesChat, socketHandle);
+									baru.detach();
 									offlineMsgHabis = true;
+									printLogo();
+									cout << "Welcome \e[1m" << activeUser << "\e[0m! Use \e[1mhelp\e[0m to show command list.\n";
 								}else if(query[0].compare("MSG") == 0){
-									cout << " MSG " << query[1] << "\n";
+									replace(query[3].begin(), query[3].end(), '~', ' ');
+									
+									pesan.dari = query[1];
+									pesan.gid = "";
+									pesan.tipe = 'P';
+									pesan.waktu = stol(query[2]);
+									pesan.pesan = query[3];
+									
+									Helper::simpanpesanUser(activeUser, pesan);
 								}else if(query[0].compare("MSGGROUP") == 0){
-									cout << " MSG GROUP " << query[1] << "\n";
+									replace(query[4].begin(), query[4].end(), '~', ' ');
+									
+									pesan.dari = query[2];
+									pesan.gid = query[1];
+									pesan.tipe = 'G';
+									pesan.waktu = stol(query[3]);
+									pesan.pesan = query[4];
+									
+									Helper::simpanpesanUser(activeUser, pesan);
 								}
 							}
 						 } break;
+						 
+			case 'M'	:{
+							
+							cout << "[" << activeUser << "]# ";
+							getline (cin,tmp);
+							
+							if (tmp.compare("message") == 0){
+								string msg_send = "MSGTO andre cucu~cucu";
+								strcpy(buf, msg_send.c_str());
+								send(socketHandle, buf, strlen(buf)+1, 0);
+								
+							}else if (tmp.compare("list") == 0){
+								vector<Pesan> listPesan = Helper::loadChat(activeUser);
+								struct tm * timeinfo;
+								
+								for ( int i = 0; i < listPesan.size(); i++ ){
+									timeinfo = localtime (&listPesan[i].waktu);
+									cout << listPesan[i].dari << "\t" << listPesan[i].pesan << "\t" << asctime(timeinfo) << "\n";
+								}
+							}else{
+								cout << "Invalid command!\n";
+							}
+							
+						} break;
 			default		:	break;
 		}
 	}
@@ -124,7 +178,47 @@ main()
 	//strcpy(buf,"Message to send");
 	//send(socketHandle, buf, strlen(buf)+1, 0);
 }
-          
+
+void prosesChat(int socketHandle){
+	int rc;
+	char buf[512];
+	
+	rc = recv(socketHandle, buf, 512, 0);
+	while(rc > 0){
+		vector<string> query = Helper::split((string)buf, ' ');
+								
+		if (query[0].compare("MSG") == 0){
+			Pesan pesan;
+			
+			replace(query[3].begin(), query[3].end(), '~', ' ');
+								
+			pesan.dari = query[1];
+			pesan.gid = "";
+			pesan.tipe = 'P';
+			pesan.waktu = stol(query[2]);
+			pesan.pesan = query[3];
+			
+			Helper::simpanpesanUser(activeUser, pesan);
+		}else if(query[0].compare("MSGGROUP") == 0){
+			Pesan pesan;
+			
+			replace(query[4].begin(), query[4].end(), '~', ' ');
+								
+			pesan.dari = query[2];
+			pesan.gid = query[1];
+			pesan.tipe = 'G';
+			pesan.waktu = stol(query[3]);
+			pesan.pesan = query[4];
+			
+			Helper::simpanpesanUser(activeUser, pesan);
+		}else if(query[0].compare("READ") == 0){
+			time_t timer; time(&timer);
+			long waktu = (long) timer;
+			Helper::savereadACK(activeUser, query[1], query[2][0], waktu);
+		}
+		rc = recv(socketHandle, buf, 512, 0);
+	}
+}          
 		  
 int buatSocket(){
 	struct sockaddr_in remoteSocketInfo;

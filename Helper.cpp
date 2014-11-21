@@ -104,7 +104,8 @@ vector<Pesan> Helper::loadChat(string username){
 		tmp.pesan = dataLine[3];
 		tmp.gid = dataLine[1];
 		tmp.tipe = dataLine[2][0];
-		tmp.read = false;
+		tmp.read = viewACK( username, tmp.dari, tmp.tipe, tmp.waktu );
+		
 		
 		int ukuran = res.size();
 		for(int i = 0; i < ukuran; i++){
@@ -115,7 +116,7 @@ vector<Pesan> Helper::loadChat(string username){
 					i = 99;
 				}
 			}else{
-				if (res[i].dari.compare(tmp.dari) == 0 && res[i].tipe == tmp.tipe){
+				if (res[i].dari.compare(tmp.dari) == 0 && tmp.tipe != 'G' && res[i].tipe != 'G'){
 					res.erase(res.begin() + i);
 					res.insert(res.begin(), tmp);
 					i = 99;
@@ -138,7 +139,7 @@ vector<Pesan> Helper::loadChat(string username){
 	return res;
 }
 
-vector<Pesan> Helper::loadpesanUser(string username, string filter){
+vector<Pesan> Helper::loadpesanUser(string username, string filter, char tipe){
 	string line;
 	vector<Pesan> res;
 	Pesan tmp;
@@ -155,10 +156,14 @@ vector<Pesan> Helper::loadpesanUser(string username, string filter){
 		tmp.pesan = dataLine[3];
 		tmp.gid = dataLine[1];
 		tmp.tipe = dataLine[2][0];
-		tmp.read = false;
+		tmp.read = readACK ( username, tmp.dari, tmp.tipe, tmp.waktu );
 		
+		if (tipe == 'G' && tmp.tipe == 'G' && tmp.gid.compare(filter) == 0){
+			res.push_back(tmp);
+		}else if(tmp.tipe != 'G' && tipe != 'G' && tmp.dari.compare(filter) == 0){
+			res.push_back(tmp);
+		}
 		
-		res.push_back(tmp);
 	}
 	
 	remove( namafile.c_str() );
@@ -172,10 +177,84 @@ void Helper::simpanpesanUser(string username, Pesan &pesan){
 	outfile << pesan.dari << ";" << pesan.gid << ";" << pesan.tipe <<  ";"  << pesan.pesan << ";"  << pesan.waktu <<  "\n";
 }
 
-bool Helper::readACK(string username, string dari, long time){
-	return true;
+bool Helper::readACK(string username, string dari, char tipe, long time){
+	string i_dari;
+	char i_tipe;
+	long i_time;
+	
+	string namafile = "read_" + username + ".txt";
+	ifstream infile(namafile);
+	while (infile >> i_dari >> i_tipe >> i_time)
+	{
+		if (i_dari.compare(dari) == 0 && i_tipe == tipe){
+			if (time < i_time)
+				return true;
+			else
+				return false;
+		}
+	}
+	
+	return false;
 }
 
-void Helper::savereadACK(string username, string dari, long time){
+void Helper::savereadACK(string username, string dari, char tipe, long time){
+	string i_dari;
+	char i_tipe;
+	long i_time;
+	
+	stringstream ss;
+	
+	string namafile = "read_" + username + ".txt";
+	ifstream infile(namafile);
+	while (infile >> i_dari >> i_tipe >> i_time)
+	{
+		if (!(i_dari.compare(dari) == 0 && i_tipe == tipe)){
+			ss << i_dari << " " << i_tipe << " " << i_time << "\n";
+		}
+	}
+	
+	ss << dari << " " << tipe << " " << time << "\n";
+	ofstream outfile(namafile, ios_base::out);
+	outfile << ss.str();
+}
 
+bool Helper::viewACK(string username, string dari, char tipe, long time){
+	string i_dari;
+	char i_tipe;
+	long i_time;
+	
+	string namafile = "view_" + username + ".txt";
+	ifstream infile(namafile);
+	while (infile >> i_dari >> i_tipe >> i_time)
+	{
+		if (i_dari.compare(dari) == 0 && i_tipe == tipe){
+			if (time < i_time)
+				return true;
+			else
+				return false;
+		}
+	}
+	
+	return false;
+}
+
+void Helper::saveviewACK(string username, string dari, char tipe, long time){
+	string i_dari;
+	char i_tipe;
+	long i_time;
+	
+	stringstream ss;
+	
+	string namafile = "view_" + username + ".txt";
+	ifstream infile(namafile);
+	while (infile >> i_dari >> i_tipe >> i_time)
+	{
+		if (!(i_dari.compare(dari) == 0 && i_tipe == tipe)){
+			ss << i_dari << " " << i_tipe << " " << i_time << "\n";
+		}
+	}
+	
+	ss << dari << " " << tipe << " " << time << "\n";
+	ofstream outfile(namafile, ios_base::out);
+	outfile << ss.str();
 }
