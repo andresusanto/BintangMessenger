@@ -153,18 +153,61 @@ main()
 							cout << "[" << activeUser << "]# ";
 							getline (cin,tmp);
 							
-							if (tmp.compare("message") == 0){
+							vector<string> query = Helper::split(tmp, ' ');
+							
+							if (query[0].compare("message") == 0){
 								string msg_send = "MSGTO andre cucu~cucu";
 								strcpy(buf, msg_send.c_str());
 								send(socketHandle, buf, strlen(buf)+1, 0);
 								
-							}else if (tmp.compare("list") == 0){
+							}else if (query[0].compare("list") == 0){
 								vector<Pesan> listPesan = Helper::loadChat(activeUser);
 								struct tm * timeinfo;
 								
+								
 								for ( int i = 0; i < listPesan.size(); i++ ){
 									timeinfo = localtime (&listPesan[i].waktu);
-									cout << listPesan[i].dari << "\t" << listPesan[i].pesan << "\t" << asctime(timeinfo) << "\n";
+									
+									if ( listPesan[i].read ){
+										cout << "\e[100m";
+									}else{
+										cout << "\e[104m";
+									}
+									
+									cout << "\e[1;93m" << listPesan[i].dari << "\e[0m";
+									
+									if ( listPesan[i].read ){
+										cout << "\e[100m";
+									}else{
+										cout << "\e[104m";
+									}
+									
+									int ukuranDari = listPesan[i].dari.length();
+									for (int j = ukuranDari ; j <= 46; j ++)
+										cout << " ";
+										
+									if (listPesan[i].pesan.length() > 46)
+										listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
+										
+									cout << asctime(timeinfo) << listPesan[i].pesan;
+									
+									ukuranDari = listPesan[i].pesan.length();
+									for (int j = ukuranDari ; j <= 70; j ++)
+										cout << " ";
+									
+									cout << "\n                                                                       \n\e[0m";
+								}
+							}else if (query[0].compare("read") == 0){
+								if (query.size() == 2){
+									vector<Pesan> listPesan = Helper::loadpesanUser(activeUser, query[1], 'P');
+									struct tm * timeinfo;
+								
+									for ( int i = 0; i < listPesan.size(); i++ ){
+										timeinfo = localtime (&listPesan[i].waktu);
+										cout << listPesan[i].dari << "\t" << listPesan[i].pesan << "\t" << asctime(timeinfo) << "\n";
+									}
+								}else{
+									cout << "Read only accept one parameter!\n";
 								}
 							}else{
 								cout << "Invalid command!\n";
