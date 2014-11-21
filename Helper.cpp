@@ -56,7 +56,6 @@ bool Helper::signup(string username,string password){
 }
 	
 vector<Pesan> Helper::pesanUser(string username){
-	int i;
 	string line;
 	vector<Pesan> res;
 	Pesan tmp;
@@ -69,7 +68,6 @@ vector<Pesan> Helper::pesanUser(string username){
 	{
 		vector<string> dataLine = split(line, ';');
 		tmp.dari = dataLine[0];
-		tmp.tujuan = "";
 		tmp.waktu = stol(dataLine[4]);
 		tmp.pesan = dataLine[3];
 		tmp.gid = dataLine[1];
@@ -84,6 +82,100 @@ vector<Pesan> Helper::pesanUser(string username){
 	return res;
 }
 
-void Helper::storePesan(string username, Pesan pesan){
+void Helper::storePesan(string username, Pesan &pesan){
+	string namafile = "pending_" + username + ".txt";
+	ofstream outfile(namafile, ios_base::app | ios_base::out);
+	outfile << pesan.dari << ";" << pesan.gid << ";" << pesan.tipe <<  ";"  << pesan.pesan << ";"  << pesan.waktu <<  "\n";
+}
+
+vector<Pesan> Helper::loadChat(string username){
+	string line;
+	vector<Pesan> res;
+	Pesan tmp;
 	
+	string namafile = "pesan_" + username + ".txt";
+	ifstream infile(namafile.c_str());
+	
+	while (getline(infile, line))
+	{
+		vector<string> dataLine = split(line, ';');
+		tmp.dari = dataLine[0];
+		tmp.waktu = stol(dataLine[4]);
+		tmp.pesan = dataLine[3];
+		tmp.gid = dataLine[1];
+		tmp.tipe = dataLine[2][0];
+		tmp.read = false;
+		
+		int ukuran = res.size();
+		for(int i = 0; i < ukuran; i++){
+			if (res[i].tipe == 'G' && tmp.tipe == 'G'){
+				if (res[i].gid.compare(tmp.gid) == 0){
+					res.erase(res.begin() + i);
+					res.insert(res.begin(), tmp);
+					i = 99;
+				}
+			}else{
+				if (res[i].dari.compare(tmp.dari) == 0 && res[i].tipe == tmp.tipe){
+					res.erase(res.begin() + i);
+					res.insert(res.begin(), tmp);
+					i = 99;
+				}
+			}
+			
+			if (i == ukuran - 1){
+				if (ukuran == 10){
+					res.erase(res.begin() + 9);
+				}
+				res.insert(res.begin(), tmp);
+			}
+		}
+		
+		if (ukuran == 0){
+			res.insert(res.begin(), tmp);
+		}
+	}
+	
+	return res;
+}
+
+vector<Pesan> Helper::loadpesanUser(string username, string filter){
+	string line;
+	vector<Pesan> res;
+	Pesan tmp;
+	
+	string namafile = "pesan_" + username + ".txt";
+	
+	ifstream infile(namafile.c_str());
+	
+	while (getline(infile, line))
+	{
+		vector<string> dataLine = split(line, ';');
+		tmp.dari = dataLine[0];
+		tmp.waktu = stol(dataLine[4]);
+		tmp.pesan = dataLine[3];
+		tmp.gid = dataLine[1];
+		tmp.tipe = dataLine[2][0];
+		tmp.read = false;
+		
+		
+		res.push_back(tmp);
+	}
+	
+	remove( namafile.c_str() );
+	
+	return res;
+}
+
+void Helper::simpanpesanUser(string username, Pesan &pesan){
+	string namafile = "pesan_" + username + ".txt";
+	ofstream outfile(namafile, ios_base::app | ios_base::out);
+	outfile << pesan.dari << ";" << pesan.gid << ";" << pesan.tipe <<  ";"  << pesan.pesan << ";"  << pesan.waktu <<  "\n";
+}
+
+bool Helper::readACK(string username, string dari, long time){
+	return true;
+}
+
+void Helper::savereadACK(string username, string dari, long time){
+
 }

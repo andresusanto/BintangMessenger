@@ -12,8 +12,15 @@ class Helper{
 		static bool signup(string username,string password);
 	
 		static vector<Pesan> pesanUser(string username);
-		static void storePesan(string username,Pesan pesan);
+		static void storePesan(string username,Pesan &pesan);
 		
 		static vector<string> &split(const string &s, char delim, vector<string> &elems);
 		static vector<string> split(const string &s, char delim);
+		
+		static vector<Pesan> loadChat(string username);
+		static vector<Pesan> loadpesanUser(string username, string filter);
+		static void simpanpesanUser(string username, Pesan &pesan);
+		
+		static bool readACK(string username, string dari, long time);
+		static void savereadACK(string username, string dari, long time);
 };

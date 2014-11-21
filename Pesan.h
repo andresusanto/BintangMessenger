@@ -5,8 +5,7 @@ using namespace std;
 
 class Pesan{
 	public:
-		string dari;
-		string tujuan;
+		string dari; // sebenernya bukan dari sih, lebih tepatnya user yang sedang berkomunikasi dengan pengguna aktif lah
 		string pesan;
 		string gid;
 		
