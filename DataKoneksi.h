@@ -5,5 +5,4 @@ class DataKoneksi{
 	public:
 		string username;
 		int state;
-	
 };

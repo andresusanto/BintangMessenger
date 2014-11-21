@@ -1,11 +1,14 @@
+// ceritanya satu untuk semua, satu helper untuk client dan server (code reusable :D )
+
 #include "Helper.h"
+#include <cstdio>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 
 using namespace std;
 
-vector<string> &split(const string &s, char delim, vector<string> &elems) {
+vector<string>& Helper::split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
     string item;
     while (getline(ss, item, delim)) {
@@ -15,9 +18,9 @@ vector<string> &split(const string &s, char delim, vector<string> &elems) {
 }
 
 
-vector<string> split(const string &s, char delim) {
+vector<string> Helper::split(const string &s, char delim) {
     vector<string> elems;
-    split(s, delim, elems);
+    Helper::split(s, delim, elems);
     return elems;
 }
 
@@ -67,17 +70,20 @@ vector<Pesan> Helper::pesanUser(string username){
 		vector<string> dataLine = split(line, ';');
 		tmp.dari = dataLine[0];
 		tmp.tujuan = "";
-		tmp.pesan = dataLine[2];
+		tmp.waktu = stol(dataLine[4]);
+		tmp.pesan = dataLine[3];
 		tmp.gid = dataLine[1];
-		tmp.tipe = 'U';
+		tmp.tipe = dataLine[2][0];
 		tmp.read = false;
 		
 		res.push_back(tmp);
 	}
 	
+	remove( namafile.c_str() );
+	
 	return res;
 }
 
-void Helper::storePesan(Pesan pesan){
+void Helper::storePesan(string username, Pesan pesan){
 	
 }

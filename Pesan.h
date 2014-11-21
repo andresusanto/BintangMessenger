@@ -9,6 +9,8 @@ class Pesan{
 		string tujuan;
 		string pesan;
 		string gid;
+		
+		long waktu;
 		char tipe;
 		bool read;
 };
