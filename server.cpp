@@ -108,24 +108,48 @@ void proses(int sock, int channel){
 							if (uc != -1){
 								string to_send = "MSG " + dakon[channel].username + " " + to_string(waktu) + " " + query[2];
 								strcpy(buf, to_send.c_str());
-								
 								send(dakon[uc].sock, buf, strlen(buf)+1, 0);
 								
+								to_send = "MSGOK";
+								strcpy(buf, to_send.c_str());
+								send(dakon[channel].sock, buf, strlen(buf)+1, 0);
 							}else{
-								replace(query[2].begin(), query[2].end(), '~', ' ');
-								
-								Pesan pesan;
-								
-								pesan.dari = dakon[channel].username;
-								pesan.gid = "";
-								pesan.tipe = 'S';
-								pesan.pesan = query[2];
-								pesan.waktu = waktu;
-								
-								Helper::storePesan(query[1], pesan);
+								if (Helper::userExist(query[1])){
+									replace(query[2].begin(), query[2].end(), '~', ' ');
+									
+									Pesan pesan;
+									
+									pesan.dari = dakon[channel].username;
+									pesan.gid = "";
+									pesan.tipe = 'S';
+									pesan.pesan = query[2];
+									pesan.waktu = waktu;
+									
+									Helper::storePesan(query[1], pesan);
+									
+									string to_send = "MSGOK";
+									strcpy(buf, to_send.c_str());
+									send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+								}else{
+									string to_send = "MSGNO";
+									strcpy(buf, to_send.c_str());
+									send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+								}
 							}
 						}else if (query[0].compare("MSGGROUPTO") == 0){
 						
+						}else if (query[0].compare("CREAD") == 0){
+							int uc = getUserChannel(query[1]);
+							time_t timer; time(&timer);
+							long waktu = (long) timer;
+							
+							if (uc != -1){
+								string to_send = "READ " + dakon[channel].username + " " + to_string(waktu);
+								strcpy(buf, to_send.c_str());
+								send(dakon[uc].sock, buf, strlen(buf)+1, 0);
+							}else{
+							
+							}
 						}
 						
 						rc = recv(sock, buf, 512, 0);

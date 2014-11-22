@@ -10,7 +10,8 @@ class Helper{
 	public:
 		static bool login(string username,string password);
 		static bool signup(string username,string password);
-	
+		static bool userExist(string username);
+		
 		static vector<Pesan> pesanUser(string username);
 		static void storePesan(string username,Pesan &pesan);
 		

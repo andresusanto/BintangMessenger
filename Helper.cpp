@@ -41,6 +41,18 @@ bool Helper::login(string username,string password){
 	return false;
 }
 
+bool Helper::userExist(string username){
+	string i_user, i_password;
+	ifstream infile("user.txt");
+	while (infile >> i_user >> i_password)
+	{
+		if (i_user.compare(username) == 0){
+			return true;
+		}
+	}
+	return false;
+}
+
 bool Helper::signup(string username,string password){
 	string i_user, i_password;
 	ifstream infile("user.txt");
@@ -184,8 +196,8 @@ bool Helper::readACK(string username, string dari, char tipe, long time){
 	ifstream infile(namafile);
 	while (infile >> i_dari >> i_tipe >> i_time)
 	{
-		if (i_dari.compare(dari) == 0 && i_tipe == tipe){
-			if (time < i_time)
+		if (i_dari.compare(dari) == 0){
+			if (time <= i_time)
 				return true;
 			else
 				return false;
@@ -226,12 +238,12 @@ bool Helper::viewACK(string username, string dari, char tipe, long time){
 	while (infile >> i_dari >> i_tipe >> i_time)
 	{
 		if (i_tipe == tipe && tipe == 'G' && i_dari.compare(dari) == 0){
-			if (time < i_time)
+			if (time <= i_time)
 				return true;
 			else
 				return false;
-		}else if(i_tipe != 'G' && tipe != 'G'){
-			if (time < i_time)
+		}else if(i_tipe != 'G' && tipe != 'G' && i_dari.compare(dari) == 0){
+			if (time <= i_time)
 				return true;
 			else
 				return false;

@@ -19,9 +19,10 @@ using namespace std;
 char clientState;
 string activeUser;
 int buatSocket();
+bool notifyNew;
 void prosesChat(int socketHandle);
 
-vector<string> sckVector;
+char sendMsgStatus;
 
 void printLogo(){
 	system("clear");
@@ -37,10 +38,13 @@ void printLogo(){
 main()
 {
 	clientState = 'A';	// state inisiasi -> cuma bisa login
+	sendMsgStatus = 'N';
 	
 	int rc = 0;
 	char buf[512];
 	string tmp;
+	
+	notifyNew = false;
 	
 	printLogo();
 	cout << "Welcome to Bintang Messenger!\nYou can \e[1mlogin\e[0m or \e[1msignup\e[0m\n\n"; 
@@ -125,6 +129,8 @@ main()
 									printLogo();
 									cout << "Welcome \e[1m" << activeUser << "\e[0m! Use \e[1mhelp\e[0m to show command list.\n";
 								}else if(query[0].compare("MSG") == 0){
+									notifyNew = true;
+									
 									replace(query[3].begin(), query[3].end(), '~', ' ');
 									
 									pesan.dari = query[1];
@@ -135,6 +141,7 @@ main()
 									
 									Helper::simpanpesanUser(activeUser, pesan);
 								}else if(query[0].compare("MSGGROUP") == 0){
+									notifyNew = true;
 									replace(query[4].begin(), query[4].end(), '~', ' ');
 									
 									pesan.dari = query[2];
@@ -149,70 +156,172 @@ main()
 						 } break;
 						 
 			case 'M'	:{
+			
+							if (notifyNew){
+								cout << "\nYou have new message(s)! Use \e[1mlist\e[0m to show them.\n";
+							}
 							
 							cout << "[" << activeUser << "]# ";
 							getline (cin,tmp);
 							
-							vector<string> query = Helper::split(tmp, ' ');
-							
-							if (query[0].compare("message") == 0){
-								string msg_send = "MSGTO andre cucu~cucu";
-								strcpy(buf, msg_send.c_str());
-								send(socketHandle, buf, strlen(buf)+1, 0);
+							if (tmp.length() > 0){
+								vector<string> query = Helper::split(tmp, ' ');
 								
-							}else if (query[0].compare("list") == 0){
-								vector<Pesan> listPesan = Helper::loadChat(activeUser);
-								struct tm * timeinfo;
-								
-								
-								for ( int i = 0; i < listPesan.size(); i++ ){
-									timeinfo = localtime (&listPesan[i].waktu);
+								if (query[0].compare("message") == 0){
+									if (query.size() == 2){
+										if (query[1].compare(activeUser) == 0){
+											cout << "You can't message yourself!\n";
+										}else{
+											string msg_send;
+											cout << "Enter message: ";
+											getline (cin,msg_send);
+											
+											replace(msg_send.begin(), msg_send.end(), ' ', '~');
+											
+											string command_send = "MSGTO " + query[1] + " " + msg_send;
+											sendMsgStatus = 'W';
+											int percobaan = 0;
+											
+											strcpy(buf, command_send.c_str());
+											send(socketHandle, buf, strlen(buf)+1, 0);
 									
-									if ( listPesan[i].read ){
-										cout << "\e[100m";
+											while (percobaan <= 30 && sendMsgStatus == 'W'){
+												std::chrono::milliseconds dura( 200 );
+												std::this_thread::sleep_for( dura );
+												percobaan++;
+											}
+											
+											if (sendMsgStatus == 'W'){
+												cout << "Failed to send your message!\n";
+											}else if(sendMsgStatus == 'E'){
+												cout << "Error: User " << query[1] << " doesnt exist!\n";
+											}else if(sendMsgStatus == 'S'){
+												cout << "Message sent!\n";
+												time_t timer; time(&timer);
+												long waktu = (long) timer;
+												
+												replace(msg_send.begin(), msg_send.end(), '~', ' ');
+												Pesan pesan;
+												pesan.dari = query[1];
+												pesan.gid = "";
+												pesan.tipe = 'S';
+												pesan.waktu = waktu;
+												pesan.pesan = msg_send;
+												
+												Helper::simpanpesanUser(activeUser, pesan);
+												Helper::saveviewACK(activeUser, query[1], 'P', waktu);
+											}
+											
+											sendMsgStatus = 'N';
+										}
 									}else{
-										cout << "\e[104m";
+										cout << "Invalid message argument. Usage: message (username)\n";
 									}
 									
-									cout << "\e[1;93m" << listPesan[i].dari << "\e[0m";
 									
-									if ( listPesan[i].read ){
-										cout << "\e[100m";
-									}else{
-										cout << "\e[104m";
-									}
-									
-									int ukuranDari = listPesan[i].dari.length();
-									for (int j = ukuranDari ; j <= 46; j ++)
-										cout << " ";
-										
-									if (listPesan[i].pesan.length() > 46)
-										listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
-										
-									cout << asctime(timeinfo) << listPesan[i].pesan;
-									
-									ukuranDari = listPesan[i].pesan.length();
-									for (int j = ukuranDari ; j <= 70; j ++)
-										cout << " ";
-									
-									cout << "\n                                                                       \n\e[0m";
-								}
-							}else if (query[0].compare("read") == 0){
-								if (query.size() == 2){
-									vector<Pesan> listPesan = Helper::loadpesanUser(activeUser, query[1], 'P');
+								}else if (query[0].compare("list") == 0){
+									vector<Pesan> listPesan = Helper::loadChat(activeUser);
 									struct tm * timeinfo;
-								
+									notifyNew = false;
+									
+									cout << "\n";
+									
 									for ( int i = 0; i < listPesan.size(); i++ ){
 										timeinfo = localtime (&listPesan[i].waktu);
-										cout << listPesan[i].dari << "\t" << listPesan[i].pesan << "\t" << asctime(timeinfo) << "\n";
+										
+										int ukuranDari = listPesan[i].dari.length();
+										
+										
+										cout << "\e[1;93m" << listPesan[i].dari << "\e[0m";
+										
+										if ( ! listPesan[i].read ){
+											cout << "\e[1;5m [NEW]\e[0m";
+											ukuranDari += 6;
+										}
+										
+										for (int j = ukuranDari ; j <= 46; j ++)
+											cout << " ";
+											
+										if (listPesan[i].pesan.length() > 46)
+											listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
+											
+										cout << asctime(timeinfo) << listPesan[i].pesan;
+										
+										ukuranDari = listPesan[i].pesan.length();
+										for (int j = ukuranDari ; j <= 70; j ++)
+											cout << " ";
+										
+										cout << "\n                                                                       \n\e[0m";
+									}
+								}else if (query[0].compare("read") == 0){
+									if (query.size() == 2){
+										vector<Pesan> listPesan = Helper::loadpesanUser(activeUser, query[1], 'P');
+										struct tm * timeinfo;
+										
+										bool awalan = true;
+										int ukuranPesan = listPesan.size();
+										for ( int i = 0; i < ukuranPesan; i++ ){
+											timeinfo = localtime (&listPesan[i].waktu);
+											
+											bool sudahView = Helper::viewACK(activeUser, query[1], 'P', listPesan[i].waktu);
+											
+											if ( awalan && !sudahView ){
+												awalan = false;
+												cout << "\n   --------------------- Unread Message Below ----------------------\n";
+											}
+											
+											int ukuranDari;
+											
+											if (listPesan[i].tipe == 'S'){
+												ukuranDari = activeUser.length();
+												cout << "\e[1;32m" << activeUser << "\e[0m";
+											}else{
+												ukuranDari = listPesan[i].dari.length();
+												cout << "\e[1;93m" << listPesan[i].dari << "\e[0m";
+											}
+											
+											
+											for (int j = ukuranDari ; j <= 46; j ++)
+												cout << " ";
+												
+											if (listPesan[i].pesan.length() > 46)
+												listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
+												
+											cout << asctime(timeinfo) << listPesan[i].pesan;
+											
+											ukuranDari = listPesan[i].pesan.length();
+											for (int j = ukuranDari ; j <= 70; j ++)
+												cout << " ";
+											
+											if (listPesan[i].tipe == 'S'){
+												if (listPesan[i].read){
+													cout << "\n                                                                [READ] \n\n\e[0m";
+												}else{
+													cout << "\n                                                                       \n\n\e[0m";
+												}
+											}else{
+												cout << "\n                                                                       \n\n\e[0m";
+											}
+										}
+										
+										if (ukuranPesan > 0){
+											time_t timer; time(&timer);
+											long waktu = (long) timer;
+											
+											
+											string msg_send = "CREAD " + query[1];
+											strcpy(buf, msg_send.c_str());
+											send(socketHandle, buf, strlen(buf)+1, 0);
+											
+											Helper::saveviewACK(activeUser, query[1], 'P', waktu);
+										}
+									}else{
+										cout << "Read only accept one parameter!\n";
 									}
 								}else{
-									cout << "Read only accept one parameter!\n";
+									cout << "Invalid command!\n";
 								}
-							}else{
-								cout << "Invalid command!\n";
 							}
-							
 						} break;
 			default		:	break;
 		}
@@ -231,6 +340,8 @@ void prosesChat(int socketHandle){
 		vector<string> query = Helper::split((string)buf, ' ');
 								
 		if (query[0].compare("MSG") == 0){
+			notifyNew = true;
+			
 			Pesan pesan;
 			
 			replace(query[3].begin(), query[3].end(), '~', ' ');
@@ -243,6 +354,8 @@ void prosesChat(int socketHandle){
 			
 			Helper::simpanpesanUser(activeUser, pesan);
 		}else if(query[0].compare("MSGGROUP") == 0){
+			notifyNew = true;
+			
 			Pesan pesan;
 			
 			replace(query[4].begin(), query[4].end(), '~', ' ');
@@ -255,9 +368,11 @@ void prosesChat(int socketHandle){
 			
 			Helper::simpanpesanUser(activeUser, pesan);
 		}else if(query[0].compare("READ") == 0){
-			time_t timer; time(&timer);
-			long waktu = (long) timer;
-			Helper::savereadACK(activeUser, query[1], query[2][0], waktu);
+			Helper::savereadACK(activeUser, query[1], 'P', stol(query[2]));
+		}else if(query[0].compare("MSGOK") == 0 && sendMsgStatus == 'W'){
+			sendMsgStatus = 'S';
+		}else if(query[0].compare("MSGNO") == 0 && sendMsgStatus == 'W'){
+			sendMsgStatus = 'E';
 		}
 		rc = recv(socketHandle, buf, 512, 0);
 	}
