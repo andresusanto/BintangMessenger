@@ -49,7 +49,7 @@ void proses(int sock, int channel){
 									vector<Pesan> offData = Helper::pesanUser(query[1]);
 									int banyakOff = offData.size();
 									
-									cout << dakon[channel].username << " Start sending pending message" << "\n";
+									cout << query[1] << " Start sending pending message" << "\n";
 									
 									for (int i = 0; i < banyakOff; i++){
 									
@@ -66,6 +66,22 @@ void proses(int sock, int channel){
 									
 									}
 									std::chrono::milliseconds dura( 100 );
+									std::this_thread::sleep_for( dura );
+									
+									
+									vector<string> rawData = Helper::loadRaw(query[1]);
+									int banyakRaw = rawData.size();
+									
+									for (int i = 0; i < banyakRaw; i++){
+									
+										std::chrono::milliseconds dura( 20 );	// untuk speed sangat tinggi, untuk mengimbangi kecepatan kernel VM
+										std::this_thread::sleep_for( dura );
+										
+										strcpy(buf, rawData[i].c_str());
+										send(sock, buf, strlen(buf)+1, 0);
+									
+									}
+									
 									std::this_thread::sleep_for( dura );
 									
 									strcpy(buf, ((string)"OK").c_str());
@@ -137,19 +153,97 @@ void proses(int sock, int channel){
 								}
 							}
 						}else if (query[0].compare("MSGGROUPTO") == 0){
-						
+							string to_send;
+							if (Helper::isMemberGroup(query[1], dakon[channel].username)){
+								vector<string> send_list = Helper::memberGroup(query[1]);
+								int jumList = send_list.size();
+								time_t timer; time(&timer);
+								long waktu = (long) timer;
+							
+								for (int i = 0; i < jumList; i++){
+									if (send_list[i].compare(dakon[channel].username) != 0){
+										int uc = getUserChannel(send_list[i]);
+										if (uc != -1){
+											to_send = "MSGGROUP " + query[1] + " " + dakon[channel].username + " " + to_string(waktu) + " " + query[2];
+											strcpy(buf, to_send.c_str());
+											send(dakon[uc].sock, buf, strlen(buf)+1, 0);
+										}else{
+											replace(query[2].begin(), query[2].end(), '~', ' ');
+											
+											Pesan pesan;
+											
+											pesan.dari = dakon[channel].username;
+											pesan.gid = query[1];
+											pesan.tipe = 'G';
+											pesan.pesan = query[2];
+											pesan.waktu = waktu;
+											
+											Helper::storePesan(send_list[i], pesan);
+											
+											replace(query[2].begin(), query[2].end(), ' ', '~');
+										}
+									}
+								}
+								to_send = "MSGOK";
+								strcpy(buf, to_send.c_str());
+								send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+							}else{
+								to_send = "MSGNO";
+								strcpy(buf, to_send.c_str());
+								send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+							}
+							
+							
+							
 						}else if (query[0].compare("CREAD") == 0){
 							int uc = getUserChannel(query[1]);
 							time_t timer; time(&timer);
 							long waktu = (long) timer;
-							
+							string to_send = "READ " + dakon[channel].username + " " + to_string(waktu);
+								
 							if (uc != -1){
-								string to_send = "READ " + dakon[channel].username + " " + to_string(waktu);
 								strcpy(buf, to_send.c_str());
 								send(dakon[uc].sock, buf, strlen(buf)+1, 0);
 							}else{
-							
+								Helper::saveRaw(query[1], to_send);
 							}
+							
+						}else if (query[0].compare("CGROUP") == 0){
+							string to_send;
+							if (Helper::createGroup(query[1])){
+								Helper::joinGroup(query[1], dakon[channel].username);
+								
+								to_send = "CGOK";
+							}else{
+								to_send = "CGNO";
+							}
+							strcpy(buf, to_send.c_str());
+							send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+							
+						}else if (query[0].compare("JGROUP") == 0){
+							string to_send;
+							if (Helper::isGroup(query[1])){
+								
+								if (Helper::joinGroup(query[1], dakon[channel].username)){
+									to_send = "JGOK";
+								}else{
+									to_send = "JGNO2";
+								}
+							}else{
+								to_send = "JGNO1";
+							}
+							strcpy(buf, to_send.c_str());
+							send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+							
+						}else if (query[0].compare("LGROUP") == 0){
+							string to_send;
+							if (Helper::leaveGroup(query[1], dakon[channel].username)){
+								to_send = "LGOK";
+							}else{
+								to_send = "LGNO";
+							}
+							strcpy(buf, to_send.c_str());
+							send(dakon[channel].sock, buf, strlen(buf)+1, 0);
 						}
 						
 						rc = recv(sock, buf, 512, 0);

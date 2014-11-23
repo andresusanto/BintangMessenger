@@ -28,4 +28,15 @@ class Helper{
 		static bool viewACK(string username, string dari, char tipe, long time);
 		static void saveviewACK(string username, string dari, char tipe, long time);
 		
+		static vector<string> loadRaw(string username);
+		static void saveRaw(string username, string rawData);
+		
+		static bool createGroup(string name);
+		static bool isGroup(string name);
+		static bool isMemberGroup(string name, string username);
+		static void deleteGroup(string name);
+		static bool joinGroup(string name, string user);
+		static bool leaveGroup(string name, string user);
+		static vector<string> memberGroup(string name);
+		
 };

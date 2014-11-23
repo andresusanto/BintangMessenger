@@ -116,8 +116,12 @@ vector<Pesan> Helper::loadChat(string username){
 		tmp.pesan = dataLine[3];
 		tmp.gid = dataLine[1];
 		tmp.tipe = dataLine[2][0];
-		tmp.read = viewACK( username, tmp.dari, tmp.tipe, tmp.waktu );
 		
+		if (tmp.tipe == 'G'){
+			tmp.read = viewACK( username, tmp.gid, tmp.tipe, tmp.waktu );
+		}else{
+			tmp.read = viewACK( username, tmp.dari, tmp.tipe, tmp.waktu );
+		}
 		
 		int ukuran = res.size();
 		for(int i = 0; i < ukuran; i++){
@@ -228,6 +232,29 @@ void Helper::savereadACK(string username, string dari, char tipe, long time){
 	outfile << ss.str();
 }
 
+vector<string> Helper::loadRaw(string username){
+	string namafile = "raw_" + username + ".txt";
+	ifstream infile(namafile);
+	string line;
+	
+	vector<string> tmp;
+	
+	while (std::getline(infile, line))
+	{
+		tmp.push_back(line);
+	}
+	
+	remove( namafile.c_str() );
+	
+	return tmp;
+}
+
+void Helper::saveRaw(string username, string rawData){
+	string namafile = "raw_" + username + ".txt";
+	ofstream outfile(namafile, ios_base::app | ios_base::out);
+	outfile << rawData <<  "\n";
+}
+
 bool Helper::viewACK(string username, string dari, char tipe, long time){
 	string i_dari;
 	char i_tipe;
@@ -272,4 +299,116 @@ void Helper::saveviewACK(string username, string dari, char tipe, long time){
 	ss << dari << " " << tipe << " " << time << "\n";
 	ofstream outfile(namafile, ios_base::out);
 	outfile << ss.str();
+}
+
+bool Helper::createGroup(string name){
+	string i_name;
+	ifstream infile("group.txt");
+	while (infile >> i_name)
+	{
+		if (i_name.compare(name) == 0){
+			return false;
+		}
+	}
+	ofstream outfile("group.txt", ios_base::app | ios_base::out);
+	outfile << name << "\n";
+	return true;
+}
+
+bool Helper::isGroup(string name){
+	string i_name;
+	ifstream infile("group.txt");
+	while (infile >> i_name)
+	{
+		if (i_name.compare(name) == 0){
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Helper::isMemberGroup(string name, string username){
+	string i_name;
+	string namafile = "group_" + name + ".txt";
+	ifstream infile(namafile);
+	
+	while (infile >> i_name)
+	{
+		if (i_name.compare(username) == 0){
+			return true;
+		}
+	}
+	return false;
+}
+
+void Helper::deleteGroup(string name){
+	string i_name;
+	stringstream ss;
+	
+	ifstream infile("group.txt");
+	while (infile >> i_name)
+	{
+		if (i_name.compare(name) != 0){
+			ss << i_name << "\n";
+		}
+	}
+	ofstream outfile("group.txt", ios_base::out);
+	outfile << ss.str();
+	
+	string namafile = "group_" + name + ".txt";
+	remove( namafile.c_str() );
+}
+
+bool Helper::joinGroup(string name, string user){
+	if (!isGroup(name)) return false;
+	string i_name;
+	string namafile = "group_" + name + ".txt";
+	ifstream infile(namafile);
+	while (infile >> i_name)
+	{
+		if (i_name.compare(user) == 0){
+			return false;
+		}
+	}
+	ofstream outfile(namafile, ios_base::app | ios_base::out);
+	outfile << user << "\n";
+	return true;
+}
+
+bool Helper::leaveGroup(string name, string user){
+	bool isi = false;
+	bool isRemoved = false;
+	string i_name;
+	stringstream ss;
+	string namafile = "group_" + name + ".txt";
+	ifstream infile(namafile);
+	
+	while (infile >> i_name)
+	{
+		if (i_name.compare(user) == 0){
+			isRemoved = true;
+		}else{
+			isi = true;
+			ss << i_name << "\n";
+		}
+	}
+	ofstream outfile(namafile, ios_base::out);
+	outfile << ss.str();
+	
+	if (!isi){
+		deleteGroup(name);
+	}
+	return isRemoved;
+}
+
+vector<string> Helper::memberGroup(string name){
+	vector<string> member;
+	string i_name;
+	string namafile = "group_" + name + ".txt";
+	ifstream infile(namafile);
+	while (infile >> i_name)
+	{
+		member.push_back(i_name);
+	}
+	return member;
 }

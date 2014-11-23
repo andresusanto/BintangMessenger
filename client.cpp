@@ -140,6 +140,8 @@ main()
 									pesan.pesan = query[3];
 									
 									Helper::simpanpesanUser(activeUser, pesan);
+								}else if(query[0].compare("READ") == 0){
+									Helper::savereadACK(activeUser, query[1], 'P', stol(query[2]));
 								}else if(query[0].compare("MSGGROUP") == 0){
 									notifyNew = true;
 									replace(query[4].begin(), query[4].end(), '~', ' ');
@@ -229,10 +231,16 @@ main()
 									for ( int i = 0; i < listPesan.size(); i++ ){
 										timeinfo = localtime (&listPesan[i].waktu);
 										
-										int ukuranDari = listPesan[i].dari.length();
+										int ukuranDari;
+										if (listPesan[i].tipe == 'G'){
+											listPesan[i].gid = "[" + listPesan[i].gid + "]";
+											cout << "\e[1;32m" << listPesan[i].gid << "\e[0m";
+											ukuranDari = listPesan[i].gid.length();
+										}else{
+											cout << "\e[1;93m" << listPesan[i].dari << "\e[0m";
+											ukuranDari = listPesan[i].dari.length();
+										}
 										
-										
-										cout << "\e[1;93m" << listPesan[i].dari << "\e[0m";
 										
 										if ( ! listPesan[i].read ){
 											cout << "\e[1;5m [NEW]\e[0m";
@@ -315,9 +323,205 @@ main()
 											
 											Helper::saveviewACK(activeUser, query[1], 'P', waktu);
 										}
+									
 									}else{
 										cout << "Read only accept one parameter!\n";
 									}
+								
+								}else if (query[0].compare("rg") == 0){
+									if (query.size() == 2){
+										vector<Pesan> listPesan = Helper::loadpesanUser(activeUser, query[1], 'G');
+										struct tm * timeinfo;
+										
+										bool awalan = true;
+										int ukuranPesan = listPesan.size();
+										for ( int i = 0; i < ukuranPesan; i++ ){
+											timeinfo = localtime (&listPesan[i].waktu);
+											
+											bool sudahView = Helper::viewACK(activeUser, query[1], 'G', listPesan[i].waktu);
+											
+											if ( awalan && !sudahView ){
+												awalan = false;
+												cout << "\n   --------------------- Unread Message Below ----------------------\n";
+											}
+											
+											int ukuranDari;
+											
+											if (listPesan[i].dari.compare(activeUser) == 0){
+												ukuranDari = activeUser.length();
+												cout << "\e[1;32m" << activeUser << "\e[0m";
+											}else{
+												ukuranDari = listPesan[i].dari.length();
+												cout << "\e[1;93m" << listPesan[i].dari << "\e[0m";
+											}
+											
+											
+											for (int j = ukuranDari ; j <= 46; j ++)
+												cout << " ";
+												
+											if (listPesan[i].pesan.length() > 46)
+												listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
+												
+											cout << asctime(timeinfo) << listPesan[i].pesan;
+											
+											ukuranDari = listPesan[i].pesan.length();
+											for (int j = ukuranDari ; j <= 70; j ++)
+												cout << " ";
+											
+											
+											cout << "\n                                                                       \n\n\e[0m";
+											
+										}
+										
+										if (ukuranPesan > 0){
+											time_t timer; time(&timer);
+											long waktu = (long) timer;
+											
+											
+											Helper::saveviewACK(activeUser, query[1], 'G', waktu);
+										}
+									
+									}else{
+										cout << "Read only accept one parameter!\n";
+									}								
+								
+								}else if (query[0].compare("create") == 0){
+									if (query.size() == 2){
+										
+										string command_send = "CGROUP " + query[1];
+										sendMsgStatus = 'C';
+										int percobaan = 0;
+										
+										strcpy(buf, command_send.c_str());
+										send(socketHandle, buf, strlen(buf)+1, 0);
+								
+										while (percobaan <= 30 && sendMsgStatus == 'C'){
+											std::chrono::milliseconds dura( 200 );
+											std::this_thread::sleep_for( dura );
+											percobaan++;
+										}
+										
+										if (sendMsgStatus == 'C'){
+											cout << "Request to create group failed!\n";
+										}else if(sendMsgStatus == 'E'){
+											cout << "Error: Group " << query[1] << " already exist!\n";
+										}else if(sendMsgStatus == 'S'){
+											cout << "Group created! Now you are a member of " + query[1] + "!\n";
+										}
+										
+										sendMsgStatus = 'N';
+									}else{
+										cout << "Group name can't contains space!\n";
+									}
+								}else if (query[0].compare("join") == 0){
+									if (query.size() == 2){
+										
+										string command_send = "JGROUP " + query[1];
+										sendMsgStatus = 'J';
+										int percobaan = 0;
+										
+										strcpy(buf, command_send.c_str());
+										send(socketHandle, buf, strlen(buf)+1, 0);
+								
+										while (percobaan <= 30 && sendMsgStatus == 'J'){
+											std::chrono::milliseconds dura( 200 );
+											std::this_thread::sleep_for( dura );
+											percobaan++;
+										}
+										
+										if (sendMsgStatus == 'J'){
+											cout << "Request to join group failed!\n";
+										}else if(sendMsgStatus == '1'){
+											cout << "Error: Group " << query[1] << " doesn't exist!\n";
+										}else if(sendMsgStatus == '2'){
+											cout << "Error: You already a member of " << query[1] << "!\n";
+										}else if(sendMsgStatus == 'S'){
+											cout << "Join success! Now you are a member of " + query[1] + "!\n";
+										}
+										
+										sendMsgStatus = 'N';
+									}else{
+										cout << "Group name can't contains space!\n";
+									}
+								}else if (query[0].compare("leave") == 0){
+									if (query.size() == 2){
+										
+										string command_send = "LGROUP " + query[1];
+										sendMsgStatus = 'L';
+										int percobaan = 0;
+										
+										strcpy(buf, command_send.c_str());
+										send(socketHandle, buf, strlen(buf)+1, 0);
+								
+										while (percobaan <= 30 && sendMsgStatus == 'L'){
+											std::chrono::milliseconds dura( 200 );
+											std::this_thread::sleep_for( dura );
+											percobaan++;
+										}
+										
+										if (sendMsgStatus == 'L'){
+											cout << "Request to leave group failed!\n";
+										}else if(sendMsgStatus == 'E'){
+											cout << "Error: You are not a member of " << query[1] << "!\n";
+										}else if(sendMsgStatus == 'S'){
+											cout << "Leave success! Now you are not a member of " + query[1] + " anymore!\n";
+										}
+										
+										sendMsgStatus = 'N';
+									}else{
+										cout << "Group name can't contains space!\n";
+									}
+								
+								}else if(query[0].compare("mg") == 0){
+									if (query.size() == 2){
+									
+										string msg_send;
+										cout << "Enter message: ";
+										getline (cin,msg_send);
+										
+										replace(msg_send.begin(), msg_send.end(), ' ', '~');
+										
+										string command_send = "MSGGROUPTO " + query[1] + " " + msg_send;
+										sendMsgStatus = 'W';
+										int percobaan = 0;
+										
+										strcpy(buf, command_send.c_str());
+										send(socketHandle, buf, strlen(buf)+1, 0);
+								
+										while (percobaan <= 30 && sendMsgStatus == 'W'){
+											std::chrono::milliseconds dura( 200 );
+											std::this_thread::sleep_for( dura );
+											percobaan++;
+										}
+										
+										if (sendMsgStatus == 'W'){
+											cout << "Failed to send your message!\n";
+										}else if(sendMsgStatus == 'E'){
+											cout << "Error: You are not a member of " << query[1] << "!\n";
+										}else if(sendMsgStatus == 'S'){
+											cout << "Message sent!\n";
+											time_t timer; time(&timer);
+											long waktu = (long) timer;
+											
+											replace(msg_send.begin(), msg_send.end(), '~', ' ');
+											Pesan pesan;
+											pesan.dari = activeUser;
+											pesan.gid = "";
+											pesan.tipe = 'G';
+											pesan.waktu = waktu;
+											pesan.pesan = msg_send;
+											
+											Helper::simpanpesanUser(activeUser, pesan);
+											Helper::saveviewACK(activeUser, query[1], 'G', waktu);
+										}
+										
+										sendMsgStatus = 'N';
+										
+									}else{
+										cout << "Invalid message argument. Usage: message (username)\n";
+									}
+									
+								
 								}else{
 									cout << "Invalid command!\n";
 								}
@@ -369,9 +573,23 @@ void prosesChat(int socketHandle){
 			Helper::simpanpesanUser(activeUser, pesan);
 		}else if(query[0].compare("READ") == 0){
 			Helper::savereadACK(activeUser, query[1], 'P', stol(query[2]));
-		}else if(query[0].compare("MSGOK") == 0 && sendMsgStatus == 'W'){
+		}else if(query[0].compare("MSGOK") == 0){
 			sendMsgStatus = 'S';
-		}else if(query[0].compare("MSGNO") == 0 && sendMsgStatus == 'W'){
+		}else if(query[0].compare("MSGNO") == 0){
+			sendMsgStatus = 'E';
+		}else if(query[0].compare("CGOK") == 0 && sendMsgStatus == 'C'){
+			sendMsgStatus = 'S';
+		}else if(query[0].compare("CGNO") == 0 && sendMsgStatus == 'C'){
+			sendMsgStatus = 'E';
+		}else if(query[0].compare("JGOK") == 0 && sendMsgStatus == 'J'){
+			sendMsgStatus = 'S';
+		}else if(query[0].compare("JGNO1") == 0 && sendMsgStatus == 'J'){
+			sendMsgStatus = '1';
+		}else if(query[0].compare("JGNO2") == 0 && sendMsgStatus == 'J'){
+			sendMsgStatus = '2';
+		}else if(query[0].compare("LGOK") == 0 && sendMsgStatus == 'L'){
+			sendMsgStatus = 'S';
+		}else if(query[0].compare("LGNO") == 0 && sendMsgStatus == 'L'){
 			sendMsgStatus = 'E';
 		}
 		rc = recv(socketHandle, buf, 512, 0);
