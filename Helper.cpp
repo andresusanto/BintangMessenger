@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 
 using namespace std;
 
@@ -411,4 +412,22 @@ vector<string> Helper::memberGroup(string name){
 		member.push_back(i_name);
 	}
 	return member;
+}
+
+int Helper::ukuranFile(string namafile){
+	ifstream in(namafile, std::ifstream::ate | std::ifstream::binary);
+    return in.tellg(); 
+}
+
+void Helper::serverLog(string log){
+	time_t rawtime;
+	time (&rawtime);
+	struct tm * timeinfo = localtime (&rawtime);
+	
+	string waktu = asctime(timeinfo);
+	replace(waktu.begin(), waktu.end(), '\n', ']');
+	
+	cout << "[" << waktu << " " << log << "\n";
+	ofstream outfile("server.log", ios_base::app | ios_base::out);
+	outfile << "[" << waktu << " " << log << "\n";
 }

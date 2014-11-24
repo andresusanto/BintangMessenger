@@ -3,13 +3,14 @@
 #include <iostream>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sendfile.h> 
 #include <netdb.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <stdio.h>
 #include <cstring>
 #include <algorithm>
-
+#include <fcntl.h>
 #include "Pesan.h"
 #include "DataKoneksi.h"
 #include "Helper.h"
@@ -40,16 +41,16 @@ void proses(int sock, int channel){
 							buf[rc]= (char) NULL;
 							vector<string> query = Helper::split((string)buf, ' ');
 							if (query[0].compare("LOGIN") == 0) {
-								cout << buf << "\n";
 								if (Helper::login(query[1], query[2])){
 									strcpy(buf, ((string)"LOGINOK").c_str());
 									send(sock, buf, strlen(buf)+1, 0);
 									
+									Helper::serverLog(query[1] + " logged in.");
 									
 									vector<Pesan> offData = Helper::pesanUser(query[1]);
 									int banyakOff = offData.size();
 									
-									cout << query[1] << " Start sending pending message" << "\n";
+									Helper::serverLog("Start sending pending message(s) to " + query[1] + ".");
 									
 									for (int i = 0; i < banyakOff; i++){
 									
@@ -91,7 +92,7 @@ void proses(int sock, int channel){
 									dakon[channel].state = 2;	// state udah login
 									dakon[channel].sock = sock;
 									
-									cout << dakon[channel].username << " OK sent" << "\n";
+									Helper::serverLog("Pending message(s) to " + query[1] + " have been sent. User is now online.");
 									
 								}else{
 									strcpy(buf, ((string)"LOGINNO").c_str());
@@ -99,8 +100,8 @@ void proses(int sock, int channel){
 								}
 								
 							}else if(query[0].compare("SIGNUP") == 0){
-								cout << buf << "\n";
 								if (Helper::signup(query[1], query[2])) {
+									Helper::serverLog("User " + query[1] + " have been registered succesfuly.");
 									strcpy(buf, ((string)"SIGNUPOK").c_str());
 								}else{
 									strcpy(buf, ((string)"SIGNUPNO").c_str());
@@ -126,6 +127,8 @@ void proses(int sock, int channel){
 								strcpy(buf, to_send.c_str());
 								send(dakon[uc].sock, buf, strlen(buf)+1, 0);
 								
+								Helper::serverLog(dakon[channel].username + " messaged " + query[1] + ". [Direct]");
+								
 								to_send = "MSGOK";
 								strcpy(buf, to_send.c_str());
 								send(dakon[channel].sock, buf, strlen(buf)+1, 0);
@@ -142,6 +145,8 @@ void proses(int sock, int channel){
 									pesan.waktu = waktu;
 									
 									Helper::storePesan(query[1], pesan);
+									
+									Helper::serverLog(dakon[channel].username + " messaged " + query[1] + ". [Pending]");
 									
 									string to_send = "MSGOK";
 									strcpy(buf, to_send.c_str());
@@ -184,6 +189,9 @@ void proses(int sock, int channel){
 										}
 									}
 								}
+								
+								Helper::serverLog(dakon[channel].username + " messaged " + query[1] + ". [GROUP]");
+								
 								to_send = "MSGOK";
 								strcpy(buf, to_send.c_str());
 								send(dakon[channel].sock, buf, strlen(buf)+1, 0);
@@ -212,7 +220,7 @@ void proses(int sock, int channel){
 							string to_send;
 							if (Helper::createGroup(query[1])){
 								Helper::joinGroup(query[1], dakon[channel].username);
-								
+								Helper::serverLog(dakon[channel].username + " has created " + query[1] + ".");
 								to_send = "CGOK";
 							}else{
 								to_send = "CGNO";
@@ -225,6 +233,7 @@ void proses(int sock, int channel){
 							if (Helper::isGroup(query[1])){
 								
 								if (Helper::joinGroup(query[1], dakon[channel].username)){
+									Helper::serverLog(dakon[channel].username + " has joined " + query[1] + ".");
 									to_send = "JGOK";
 								}else{
 									to_send = "JGNO2";
@@ -238,12 +247,56 @@ void proses(int sock, int channel){
 						}else if (query[0].compare("LGROUP") == 0){
 							string to_send;
 							if (Helper::leaveGroup(query[1], dakon[channel].username)){
+								Helper::serverLog(dakon[channel].username + " has left " + query[1] + ".");
 								to_send = "LGOK";
 							}else{
 								to_send = "LGNO";
 							}
 							strcpy(buf, to_send.c_str());
 							send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+						}else if (query[0].compare("FILETO") == 0){
+							string to_send;
+							if (Helper::userExist(query[1])){
+								int uc = getUserChannel(query[1]);
+								if (uc != -1){
+									to_send = "OK";
+									strcpy(buf, to_send.c_str());
+									send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+									
+									
+									int ukuran = atoi(query[3].c_str());
+									char tmpFile[ukuran];
+									rc = recv(sock, tmpFile, ukuran, 0);
+									
+									
+									to_send = "FILEFROM " + dakon[channel].username + " " + query[2] + " " + query[3];
+									strcpy(buf, to_send.c_str());
+									send(dakon[uc].sock, buf, strlen(buf)+1, 0);
+									
+									//rc = recv(dakon[uc].sock, buf, 512, 0);
+									
+									std::chrono::milliseconds dura( 200 );	
+									std::this_thread::sleep_for( dura );
+								
+									send(dakon[uc].sock, tmpFile, ukuran, 0);
+									
+									Helper::serverLog(dakon[channel].username + " has sent a " + query[3] + " bytes file to " + query[1] + ".");
+									
+									to_send = "OK";
+									strcpy(buf, to_send.c_str());
+									send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+									
+									
+								}else{
+									to_send = "NO 2";
+									strcpy(buf, to_send.c_str());
+									send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+								}
+							}else{
+								to_send = "NO 1";
+								strcpy(buf, to_send.c_str());
+								send(dakon[channel].sock, buf, strlen(buf)+1, 0);
+							}
 						}
 						
 						rc = recv(sock, buf, 512, 0);
@@ -255,10 +308,11 @@ void proses(int sock, int channel){
 		
 	}
 	
-	cout << "[] Client '" << dakon[channel].username << "' Disconnected" << endl;
-    dakon[channel].state = 0; //Biar channel bisa dipake yang lain
-	dakon[channel].username = "";
-	
+	if (dakon[channel].state != 0){
+		Helper::serverLog(dakon[channel].username + " logged out. User is now offline.");
+		dakon[channel].state = 0; //Biar channel bisa dipake yang lain
+		dakon[channel].username = "";
+	}
 	
 }
 
@@ -285,11 +339,15 @@ int getUserChannel(string username){
 main()
 {
    struct sockaddr_in socketInfo;
-   char sysHost[MAXHOSTNAME+1];  // Hostname of this computer we are running on
+   char sysHost[MAXHOSTNAME+1];  // Untuk Hostname komputer yang sedang aktif
    struct hostent *hPtr;
    int socketHandle;
    int portNumber = 8080;
    
+   system("clear");
+   
+   cout << "BINTANG MESSENGER SERVER 0.1b\n";
+   cout << "------------------------------\n";
    
    dakon = new DataKoneksi[SERVERCAPACITY];
    for (int i = 0; i < SERVERCAPACITY; i++){
@@ -299,30 +357,38 @@ main()
 
    bzero(&socketInfo, sizeof(sockaddr_in));  // Clear structure memory
 
-   // Get system information
+   cout << "Setting up server's hostname ... ";
 
-   gethostname(sysHost, MAXHOSTNAME);  // Get the name of this computer we are running on
+   gethostname(sysHost, MAXHOSTNAME); 
    if((hPtr = gethostbyname(sysHost)) == NULL)
    {
       cerr << "System hostname misconfigured." << endl;
       exit(EXIT_FAILURE);
    }
-
-   // create socket
+   
+   cout << "OK\n";
+   cout << "Creating master socket ... ";
+   // Buat socket utk listen
 
    if((socketHandle = socket(AF_INET, SOCK_STREAM, 0)) < 0)
    {
       close(socketHandle);
       exit(EXIT_FAILURE);
    }
-
-   // Load system information into socket data structures
+	
+	cout << "OK\n";
+   cout << "Configuring master socket ... ";
+   
+   // Load system info untuk socket
 
    socketInfo.sin_family = AF_INET;
-   socketInfo.sin_addr.s_addr = htonl(INADDR_ANY); // Use any address available to the system
-   socketInfo.sin_port = htons(portNumber);      // Set port number
-
-   // Bind the socket to a local socket address
+   socketInfo.sin_addr.s_addr = htonl(INADDR_ANY);
+   socketInfo.sin_port = htons(portNumber);   
+   
+	cout << "OK\n";
+   cout << "Binding master socket ... ";
+   
+   // Bind socket yang sudah d buat
 
    if( bind(socketHandle, (struct sockaddr *) &socketInfo, sizeof(socketInfo)) < 0)
    {
@@ -330,9 +396,12 @@ main()
       perror("bind");
       exit(EXIT_FAILURE);
    }
-
+   
    
    listen(socketHandle, 1);
+   
+   cout << "OK\n\n";
+   Helper::serverLog("Bintang messenger server started!");
 
    int socketConnection;
    while( 1 )
@@ -342,15 +411,17 @@ main()
 		int channel = availChannel();
 		
 		if (channel != -1){
+			// ketika channel masih ada (tidak lebih dari SERVERCAPACITY)
 			thread baru (proses, socketConnection, channel);
 			baru.detach();
 		}else{
+			// channel habis, tolak koneksi
 			close(socketConnection);
 		}
 	}
-      //exit(EXIT_FAILURE);
    }
-   //close(socketHandle);
+   
+   // I N F I N I T E    L O O P
 
 }
           

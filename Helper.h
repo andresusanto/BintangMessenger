@@ -39,4 +39,8 @@ class Helper{
 		static bool leaveGroup(string name, string user);
 		static vector<string> memberGroup(string name);
 		
+		static int ukuranFile(string namafile);
+		
+		static void serverLog(string log);
+		
 };

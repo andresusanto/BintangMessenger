@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sendfile.h>  
 #include <netdb.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <vector>
 #include <time.h> 
+#include <fcntl.h>
 
 #define MAXHOSTNAME 256
 
@@ -250,8 +252,8 @@ main()
 										for (int j = ukuranDari ; j <= 46; j ++)
 											cout << " ";
 											
-										if (listPesan[i].pesan.length() > 46)
-											listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
+										if (listPesan[i].pesan.length() > 70)
+											listPesan[i].pesan = listPesan[i].pesan.substr(0,66) + " ...";
 											
 										cout << asctime(timeinfo) << listPesan[i].pesan;
 										
@@ -292,8 +294,6 @@ main()
 											for (int j = ukuranDari ; j <= 46; j ++)
 												cout << " ";
 												
-											if (listPesan[i].pesan.length() > 46)
-												listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
 												
 											cout << asctime(timeinfo) << listPesan[i].pesan;
 											
@@ -359,8 +359,6 @@ main()
 											for (int j = ukuranDari ; j <= 46; j ++)
 												cout << " ";
 												
-											if (listPesan[i].pesan.length() > 46)
-												listPesan[i].pesan = listPesan[i].pesan.substr(0,42) + " ...";
 												
 											cout << asctime(timeinfo) << listPesan[i].pesan;
 											
@@ -506,7 +504,7 @@ main()
 											replace(msg_send.begin(), msg_send.end(), '~', ' ');
 											Pesan pesan;
 											pesan.dari = activeUser;
-											pesan.gid = "";
+											pesan.gid = query[1];
 											pesan.tipe = 'G';
 											pesan.waktu = waktu;
 											pesan.pesan = msg_send;
@@ -521,7 +519,72 @@ main()
 										cout << "Invalid message argument. Usage: message (username)\n";
 									}
 									
-								
+								}else if(query[0].compare("file") == 0){
+									if (query.size() == 2){
+										if (query[1].compare(activeUser) == 0){
+											cout << "You cant send file to yourself!\n";
+										}else{
+											string msg_file;
+											cout << "Enter filename: ";
+											getline (cin,msg_file);
+											int ukuranFile = Helper::ukuranFile(msg_file);
+											
+											if ( ukuranFile > 0){
+												string command_send = "FILETO " + query[1] + " " + msg_file + " " + to_string(ukuranFile);
+												sendMsgStatus = 'F';
+												int percobaan = 0;
+												
+												strcpy(buf, command_send.c_str());
+												send(socketHandle, buf, strlen(buf)+1, 0);
+												
+												bool udahKirim = false;
+												
+												while (percobaan <= 30 && (sendMsgStatus == 'F' || sendMsgStatus == 'Q')){
+													std::chrono::milliseconds dura( 200 );
+													std::this_thread::sleep_for( dura );
+													if (!udahKirim && sendMsgStatus == 'Q'){
+														int source = open(msg_file.c_str(), O_RDONLY, 0);
+														sendfile(socketHandle, source, 0, ukuranFile);
+														close(source);
+														percobaan = -30;
+														udahKirim = true;
+													}
+													percobaan++;
+												}
+												
+												if (sendMsgStatus == 'F' || sendMsgStatus == 'Q'){
+													cout << "Request to send message failed!\n";
+												}else if(sendMsgStatus == '1'){
+													cout << "Error: User " << query[1] << " is not exist!\n";
+												}else if(sendMsgStatus == '2'){
+													cout << "Error: User " << query[1] << " is offline!\n";
+												}else if(sendMsgStatus == 'S'){
+													cout << "File sent!\n";
+													time_t timer; time(&timer);
+													long waktu = (long) timer;
+													Pesan pesan;
+													pesan.dari = query[1];
+													pesan.gid = "";
+													pesan.tipe = 'S';
+													pesan.waktu = waktu;
+													pesan.pesan = "[You have just sent a file : " + msg_file + "]";
+													
+													Helper::simpanpesanUser(activeUser, pesan);
+													Helper::saveviewACK(activeUser, query[1], 'P', waktu);
+												}
+												
+												sendMsgStatus = 'N';
+											}else{
+												cout << "file: " << msg_file <<  " is empty!\n";
+											}
+										}
+										
+									}else if(query[0].compare("logout") == 0){
+										clientState = 'X';
+										cout << "Bye! Have a nice day!\n";
+									}else{
+										cout << "Invalid file argument. Usage: file (username)\n";
+									}
 								}else{
 									cout << "Invalid command!\n";
 								}
@@ -531,8 +594,6 @@ main()
 		}
 	}
 
-	//strcpy(buf,"Message to send");
-	//send(socketHandle, buf, strlen(buf)+1, 0);
 }
 
 void prosesChat(int socketHandle){
@@ -542,57 +603,94 @@ void prosesChat(int socketHandle){
 	rc = recv(socketHandle, buf, 512, 0);
 	while(rc > 0){
 		vector<string> query = Helper::split((string)buf, ' ');
-								
-		if (query[0].compare("MSG") == 0){
-			notifyNew = true;
-			
-			Pesan pesan;
-			
-			replace(query[3].begin(), query[3].end(), '~', ' ');
-								
-			pesan.dari = query[1];
-			pesan.gid = "";
-			pesan.tipe = 'P';
-			pesan.waktu = stol(query[2]);
-			pesan.pesan = query[3];
-			
-			Helper::simpanpesanUser(activeUser, pesan);
-		}else if(query[0].compare("MSGGROUP") == 0){
-			notifyNew = true;
-			
-			Pesan pesan;
-			
-			replace(query[4].begin(), query[4].end(), '~', ' ');
-								
-			pesan.dari = query[2];
-			pesan.gid = query[1];
-			pesan.tipe = 'G';
-			pesan.waktu = stol(query[3]);
-			pesan.pesan = query[4];
-			
-			Helper::simpanpesanUser(activeUser, pesan);
-		}else if(query[0].compare("READ") == 0){
-			Helper::savereadACK(activeUser, query[1], 'P', stol(query[2]));
-		}else if(query[0].compare("MSGOK") == 0){
-			sendMsgStatus = 'S';
-		}else if(query[0].compare("MSGNO") == 0){
-			sendMsgStatus = 'E';
-		}else if(query[0].compare("CGOK") == 0 && sendMsgStatus == 'C'){
-			sendMsgStatus = 'S';
-		}else if(query[0].compare("CGNO") == 0 && sendMsgStatus == 'C'){
-			sendMsgStatus = 'E';
-		}else if(query[0].compare("JGOK") == 0 && sendMsgStatus == 'J'){
-			sendMsgStatus = 'S';
-		}else if(query[0].compare("JGNO1") == 0 && sendMsgStatus == 'J'){
-			sendMsgStatus = '1';
-		}else if(query[0].compare("JGNO2") == 0 && sendMsgStatus == 'J'){
-			sendMsgStatus = '2';
-		}else if(query[0].compare("LGOK") == 0 && sendMsgStatus == 'L'){
-			sendMsgStatus = 'S';
-		}else if(query[0].compare("LGNO") == 0 && sendMsgStatus == 'L'){
-			sendMsgStatus = 'E';
+		if (query.size() > 0){
+			if (query[0].compare("MSG") == 0){
+				notifyNew = true;
+				
+				Pesan pesan;
+				
+				replace(query[3].begin(), query[3].end(), '~', ' ');
+									
+				pesan.dari = query[1];
+				pesan.gid = "";
+				pesan.tipe = 'P';
+				pesan.waktu = stol(query[2]);
+				pesan.pesan = query[3];
+				
+				Helper::simpanpesanUser(activeUser, pesan);
+			}else if(query[0].compare("MSGGROUP") == 0){
+				notifyNew = true;
+				
+				Pesan pesan;
+				
+				replace(query[4].begin(), query[4].end(), '~', ' ');
+									
+				pesan.dari = query[2];
+				pesan.gid = query[1];
+				pesan.tipe = 'G';
+				pesan.waktu = stol(query[3]);
+				pesan.pesan = query[4];
+				
+				Helper::simpanpesanUser(activeUser, pesan);
+			}else if(query[0].compare("READ") == 0){
+				Helper::savereadACK(activeUser, query[1], 'P', stol(query[2]));
+			}else if(query[0].compare("MSGOK") == 0){
+				sendMsgStatus = 'S';
+			}else if(query[0].compare("MSGNO") == 0){
+				sendMsgStatus = 'E';
+			}else if(query[0].compare("CGOK") == 0 && sendMsgStatus == 'C'){
+				sendMsgStatus = 'S';
+			}else if(query[0].compare("CGNO") == 0 && sendMsgStatus == 'C'){
+				sendMsgStatus = 'E';
+			}else if(query[0].compare("JGOK") == 0 && sendMsgStatus == 'J'){
+				sendMsgStatus = 'S';
+			}else if(query[0].compare("JGNO1") == 0 && sendMsgStatus == 'J'){
+				sendMsgStatus = '1';
+			}else if(query[0].compare("JGNO2") == 0 && sendMsgStatus == 'J'){
+				sendMsgStatus = '2';
+			}else if(query[0].compare("LGOK") == 0 && sendMsgStatus == 'L'){
+				sendMsgStatus = 'S';
+			}else if(query[0].compare("LGNO") == 0 && sendMsgStatus == 'L'){
+				sendMsgStatus = 'E';
+			}else if(query[0].compare("OK") == 0 && sendMsgStatus == 'F'){
+				sendMsgStatus = 'Q';
+			}else if(query[0].compare("OK") == 0 && sendMsgStatus == 'Q'){
+				sendMsgStatus = 'S';
+			}else if(query[0].compare("NO") == 0 && (sendMsgStatus == 'F' || sendMsgStatus == 'Q')){
+				sendMsgStatus = query[1][0];
+			}else if(query[0].compare("FILEFROM") == 0){
+				int ukuran = atoi(query[3].c_str());
+				char tmpFile[ukuran];
+				time_t timer; time(&timer);
+				long waktu = (long) timer;
+				
+				string command_send = "OK";
+				strcpy(buf, command_send.c_str());
+				send(socketHandle, buf, strlen(buf)+1, 0);
+				
+				rc = recv(socketHandle, tmpFile, ukuran, 0);
+				
+				string cbf = activeUser + "_receivedfrom_" + query[1] + "_" + query[2];
+				ofstream outfile (cbf,std::ofstream::binary);
+				outfile.write (tmpFile,ukuran);
+				outfile.close();
+				
+				notifyNew = true;
+				
+				Pesan pesan;
+				
+				pesan.dari = query[1];
+				pesan.gid = "";
+				pesan.tipe = 'P';
+				pesan.waktu = waktu;
+				pesan.pesan = "[" + query[1] + " has sent you a file. The file is saved as " + cbf + "]";
+				
+				Helper::simpanpesanUser(activeUser, pesan);
+				
+			}
 		}
 		rc = recv(socketHandle, buf, 512, 0);
+		
 	}
 }          
 		  
