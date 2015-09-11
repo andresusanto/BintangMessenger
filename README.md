@@ -18,6 +18,21 @@ Klien akan melakukan koneksi ke alamat yang sudah didefinisikan. Pada program ya
 
 Thread utama akan menangani setiap perintah dari user dan memprosesnya. Misalnya perintah untuk mengirimkan pesan ke pengguna tertentu. Thread ke-dua digunakan untuk menerima data dari server. Agar kedua thread ini tidak saling konflik, kami menggunakan sistem mutual exclusive untuk beberapa kasus tertentu seperti kasus pengiriman pesan (karena harus menunggu konfirmasi dari server).
 
+## Kompilasi dan Eksekusi
+Untuk melakukan kompilasi client, silahkan gunakan perintah:
+```
+g++ -o client Helper.cpp client.cpp -std=gnu++11 -pthread
+```
+
+Untuk melakukan kompilasi server, silahkan gunakan perintah:
+```
+g++ -o server Helper.cpp server.cpp -std=c++11 -pthread
+```
+
+Setelah itu anda dapat menjalankan client dengan perintah `./client` dan menjalankan server dengan perintah `./server`.
+
+**Catatan:** Jika anda ingin menggunakan program ini pada jaringan selain `localhost`, anda harus memodifikasi `client.cpp` dan ganti string `remoteHost` dari `localhost` menjadi IP server di jaringan anda.
+
 ## Screen Shoots
 Server logging:
 
